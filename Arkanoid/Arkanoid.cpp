@@ -1,101 +1,106 @@
 #include <SFML/Graphics.hpp>
 
 /**
- * Класс платформы
+ * Общий родительский класс для всех объектов
+ * Что общего у всех объектов?
+ *  - Они все рендерятся на экране
  */
-class Platform
+class GameObject
 {
-    sf::RectangleShape body{{20,20}};
-    float velocity{};
-    float direction{};
-    sf::Color color{};
-    sf::Vector2<float> spawn_point{};
-    
 public:
-    void move(float& direction, float& velocity){}
-    sf::RectangleShape& get_body() //возвращаем именно ссылку на объект
+    virtual void render(sf::RenderWindow& window){}
+    virtual ~GameObject(){}
+};
+
+/**
+ * Класс платформы, которой управляет игрок
+ *  - рендерится
+ *  - ей можно управлять на A и D
+ *  - Не может выезжать за край экрана
+ *  - в начале игры появляется в середине нижней границы экрана
+ *  - длинная, невысокая
+ * Переменные:
+ *  - тело
+ *  - Скорость - константа
+ * Конструктор:
+ *  - Измененный локальный ориджин - чтобы был не в правом верхнем углу, а в центре
+ *  - стартовая позиция
+ *  - цвет
+ * Функции:
+ *  - move - движение объекта при нажатии на клавиши
+ *  - render - отображение платформы
+ */
+class Paddle : GameObject
+{
+    sf::RectangleShape body{{100,20}};
+    const float speed{0.1f};
+
+public:
+    Paddle ()
     {
-        return this->body;
+        body.setFillColor(sf::Color::Blue);
+        body.setOrigin({body.getSize().x/2,body.getSize().y/2});
+        body.setPosition({400,590});
     }
-};
 
-/**
- * Класс шарика
- */
-class Ball
-{
-    sf::CircleShape body{10,20};
-    float velocity{};
-    sf::Color color{};
-    sf::Vector2<float> spawn_point{};
-    
-public:
-    void move(float& angle, float& velocity){}
-    sf::CircleShape& get_body() //возвращаем именно ссылку на объект
+    void move()
     {
-        return this->body;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
+        {
+            body.move({speed, 0});
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
+        {
+            body.move({-speed, 0});
+        }
     }
+    
+    void render(sf::RenderWindow& window) override
+    {
+        window.draw(body);
+    }
+    ~Paddle() override {}
 };
 
 /**
- * Класс кирпичика
- */
-class Brick
-{
-    sf::RectangleShape body{{50,50}};
-    sf::Color color{};
-
-public:
-    void destroy(){}
-};
-
-
-/**
- * Main Game Class
+ * Основной класс игрового лупа
+ * Что в нем должно быть:
+ *  - функции которые все рендерят пока крутится луп
+ *  - отображение окна
+ *  - он должен знать о всех других классах
+ *  - Функции:
+ *      Run() - функция с основным игровым циклом
  */
 class Game
 {
-public:
-    bool IsRunning{};\
-    int points{};
-    Platform Player;
-    Ball Ball;
+private:
+    sf::RenderWindow window; //();
+    Paddle Player;
     
-    void Render(){} //обработка отображения экрана, отрисовка всего
-    void InputProcess(){} //обработка инпута игрока
+public:
+    Game(): window(sf::VideoMode({800, 600}), "My window"){}
+    
     void Run()
     {
-        while (IsRunning)
+        while (window.isOpen())
         {
-            //основной игровой цикл 
+            while (const std::optional event = window.pollEvent())
+            {
+                if (event->is<sf::Event::Closed>())
+                    window.close();
+            }
+
+            window.clear();
+            Player.render(window);
+            Player.move();
+            window.display();
         }
     }
-};
-
-/**
- * Класс, обрабатывающий коллизии
- */
-class Collider
-{
     
 };
-
-
 
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode({800, 600}), "SFML works!");
-
-    while (window.isOpen())
-    {
-        while (const std::optional event = window.pollEvent())
-        {
-            if (event->is<sf::Event::Closed>())
-                window.close();
-        }
-
-        window.clear();
-        window.draw(PLayer.get_body());
-        window.display();
-    }
+    Game G;
+    G.Run();
 }
