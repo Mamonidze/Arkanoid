@@ -9,7 +9,25 @@ class GameObject
 {
 public:
     virtual void render(sf::RenderWindow& window){}
-    virtual ~GameObject(){}
+    virtual ~GameObject() = default;
+};
+
+/**
+ * Класс, отвечающий за инпут
+ */
+class InputController
+{
+public:
+    bool move_Left {};
+    bool move_Right {};
+    bool release_ball {};
+    
+    void update()
+    {
+        move_Left    = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left);
+        move_Right   = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right);
+        release_ball = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
+    }
 };
 
 /**
@@ -22,6 +40,7 @@ public:
  * Переменные:
  *  - тело
  *  - Скорость - константа
+ *  - Bounding box - для проверки коллизий
  * Конструктор:
  *  - Измененный локальный ориджин - чтобы был не в правом верхнем углу, а в центре
  *  - стартовая позиция
@@ -33,7 +52,9 @@ public:
 class Paddle : GameObject
 {
     sf::RectangleShape body{{100,20}};
-    const float speed{0.1f};
+    float speed{0.1f};
+    sf::FloatRect boundingBox = body.getGlobalBounds();
+
 
 public:
     Paddle ()
@@ -43,15 +64,34 @@ public:
         body.setPosition({400,590});
     }
 
-    void move()
+    void move(const InputController& input)
     {
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
+        if (input.move_Right)
         {
             body.move({speed, 0});
         }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
+        if (input.move_Left)
         {
             body.move({-speed, 0});
+        }
+        check_paddle_collision();
+    }
+    
+    /**
+    * коллизия платформы со стенками экрана
+    * проблема в том, что привязано к залоченному разрешению
+    */
+    void check_paddle_collision()
+    {
+        float halfWidth = body.getSize().x / 2.f;
+        sf::Vector2f pos = body.getPosition();
+        if (pos.x - halfWidth < 0)
+        {
+            body.setPosition({halfWidth, pos.y});
+        }
+        if (pos.x + halfWidth > 800)
+        {
+            body.setPosition({800 - halfWidth, pos.y});
         }
     }
     
@@ -59,8 +99,70 @@ public:
     {
         window.draw(body);
     }
-    ~Paddle() override {}
+    ~Paddle() override = default;
 };
+
+/**
+ * Класс шарика
+ *  - рендерится
+ *  - в начале игры находится на центре платформе и перемещается вместе с ней
+ *  - Не может вылетать за край экрана
+ *  - небольшой, радиус около 20
+ *  - при столкновении с объектом или границей экрана должен отлетать от них под определенным углом
+ * Переменные:
+ *  - тело
+ *  - Скорость - константа
+ *  - Bounding circle? - для проверки коллизий
+ * Конструктор:
+ *  - Измененный локальный ориджин - чтобы был в центре
+ *  - стартовая позиция
+ *  - цвет
+ * Функции:
+ *  - move - движение объекта
+ *  - render - отображение шарика
+ *  - Release - отвязывание шарика от платформы по нажатию клавиши 
+ */
+
+class Ball : GameObject
+{
+    sf::CircleShape body{20,20};
+    float speed{0};
+    sf::FloatRect boundingBox = body.getGlobalBounds();
+    bool IsReleased{false};
+
+public:
+    Ball ()
+    {
+        body.setFillColor(sf::Color::Yellow);
+        body.setOrigin({10,10});
+        body.setPosition({400,580});
+    }
+    
+    bool Release_Ball(InputController& input)
+    {
+        if (input.release_ball)
+        {
+            speed = 0.01f;
+            return IsReleased = true;
+        }
+        return IsReleased = false;
+    }
+
+    void move()
+    {
+        if (IsReleased)
+        {
+            body.move({0, -speed});
+        }
+    }
+
+    void render(sf::RenderWindow& window) override
+    {
+        window.draw(body);
+    }
+};
+
+
 
 /**
  * Основной класс игрового лупа
@@ -74,11 +176,13 @@ public:
 class Game
 {
 private:
-    sf::RenderWindow window; //();
+    sf::RenderWindow window;
+    InputController input;
     Paddle Player;
+    Ball Ball;
     
 public:
-    Game(): window(sf::VideoMode({800, 600}), "My window"){}
+    Game(): window(sf::VideoMode({800, 600}), "Arkanoid"){}
     
     void Run()
     {
@@ -90,9 +194,14 @@ public:
                     window.close();
             }
 
+            input.update();
+
             window.clear();
             Player.render(window);
-            Player.move();
+            Player.move(input);
+            Ball.render(window);
+            Ball.move();
+            Ball.Release_Ball(input);
             window.display();
         }
     }
